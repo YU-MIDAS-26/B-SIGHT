@@ -1,0 +1,212 @@
+import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
+
+type TopbarProps = {
+  isLoggedIn?: boolean;
+  siteName?: string;
+  menus?: string[];
+  onSiteClick?: () => void;
+  onMenuClick?: (menu: string) => void;
+  onLoginClick?: () => void;
+  onSignupClick?: () => void;
+  onLogoutClick?: () => void;
+  onMyPageClick?: () => void;
+};
+
+const Bar = styled.header`
+  width: 100%;
+  min-height: 70px;
+  background: #7ea0b7;
+  padding-inline: var(--app-gutter);
+  box-sizing: border-box;
+`;
+
+const BarInner = styled.div`
+  width: min(100%, var(--app-max-width));
+  min-height: 70px;
+  margin: 0 auto;
+  padding: 12px 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Section = styled.div`
+  display: flex;
+  align-items: center;
+  min-width: 0;
+`;
+
+const LeftSection = styled(Section)`
+  justify-content: flex-start;
+`;
+
+const CenterSection = styled(Section)`
+  justify-content: center;
+  gap: 36px;
+  flex-wrap: wrap;
+`;
+
+const RightSection = styled(Section)`
+  justify-content: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
+
+const ActionButton = styled.button`
+  border: none;
+  background: transparent;
+  color: #111111;
+  font-size: 16px;
+  font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+`;
+
+const LogoButton = styled(ActionButton)`
+  font-weight: 700;
+  letter-spacing: 0.2px;
+`;
+
+const ResponsiveLeftSection = styled(LeftSection)`
+  @media (max-width: 768px) {
+    justify-content: center;
+    width: 100%;
+  }
+`;
+
+const ResponsiveCenterSection = styled(CenterSection)`
+  @media (max-width: 768px) {
+    justify-content: center;
+    gap: 18px;
+    width: 100%;
+  }
+`;
+
+const ResponsiveRightSection = styled(RightSection)`
+  @media (max-width: 768px) {
+    justify-content: center;
+    width: 100%;
+  }
+`;
+
+export default function Topbar({
+  isLoggedIn = false,
+  siteName = "B-SIGHT",
+  menus = ["재료 등록", "매출 관리", "직원 관리"],
+  onSiteClick,
+  onMenuClick,
+  onLoginClick,
+  onSignupClick,
+  onLogoutClick,
+  onMyPageClick,
+}: TopbarProps) {
+  const navigate = useNavigate();
+
+  const handleMenuClick = (menu: string) => {
+    if (menu === "재료 등록") {
+      navigate("/ingredients");
+      return;
+    }
+    if (menu === "매출 관리") {
+      navigate("/sales-check");
+      return;
+    }
+    if (menu === "직원 관리") {
+      navigate("/employee-manage");
+      return;
+    }
+    onMenuClick?.(menu);
+  };
+
+  const handleLoginClick = () => {
+    if (onLoginClick) {
+      onLoginClick();
+      return;
+    }
+    navigate("/login");
+  };
+
+  const handleSignupClick = () => {
+    if (onSignupClick) {
+      onSignupClick();
+      return;
+    }
+    navigate("/register");
+  };
+
+  const handleMyPageClick = () => {
+    if (onMyPageClick) {
+      onMyPageClick();
+      return;
+    }
+    navigate("/mypage");
+  };
+
+  const handleLogoutClick = () => {
+    if (onLogoutClick) {
+      onLogoutClick();
+      return;
+    }
+    localStorage.removeItem("accessToken");
+    navigate("/");
+  };
+
+  return (
+    <Bar>
+      <BarInner>
+        <ResponsiveLeftSection>
+          <LogoButton
+            type="button"
+            onClick={onSiteClick || (() => navigate("/"))}
+          >
+            {siteName}
+          </LogoButton>
+        </ResponsiveLeftSection>
+
+        <ResponsiveCenterSection>
+          {isLoggedIn &&
+            menus.map((menu) => (
+              <ActionButton
+                key={menu}
+                type="button"
+                onClick={() => handleMenuClick(menu)}
+              >
+                {menu}
+              </ActionButton>
+            ))}
+        </ResponsiveCenterSection>
+
+        <ResponsiveRightSection>
+          {isLoggedIn ? (
+            <>
+              <ActionButton type="button" onClick={handleMyPageClick}>
+                마이페이지
+              </ActionButton>
+              <ActionButton type="button" onClick={handleLogoutClick}>
+                로그아웃
+              </ActionButton>
+            </>
+          ) : (
+            <>
+              <ActionButton type="button" onClick={handleLoginClick}>
+                로그인
+              </ActionButton>
+              <ActionButton type="button" onClick={handleSignupClick}>
+                회원가입
+              </ActionButton>
+            </>
+          )}
+        </ResponsiveRightSection>
+      </BarInner>
+    </Bar>
+  );
+}
