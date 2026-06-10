@@ -43,7 +43,7 @@ OpenAI 기반 AI 챗봇
 ## 📂 프로젝트 구조
 
 ```bash
-MIDAS/
+B-Sight/
 ├── frontend/              # React 기반 프론트엔드
 │
 └── backend/               # 백엔드
@@ -89,8 +89,8 @@ MIDAS/
 ### 1. 레포지토리 복사
 
 ```bash
-git clone https://github.com/YU-MIDAS-26/MIDAS.git
-cd MIDAS
+git clone https://github.com/YU-MIDAS-26/B-Sight.git
+cd B-Sight
 ```
 
 ---
