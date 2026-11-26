@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   csvApi,
   type DailyStats,
@@ -24,10 +24,19 @@ import ReactECharts from "echarts-for-react";
 
 type UploadStatus = "idle" | "loading" | "success" | "error";
 
-const CHANNEL_COLORS = {
-  OFFLINE: "#3b82f6", // 매장: 파랑
-  DELIVERY: "#f59e0b", // 배달: 주황
+type HeatmapCoord = {
+  hour: number;
+  dayIndex: number;
 };
+
+const CHANNEL_COLORS = {
+  OFFLINE: "#4f738e", // 매장: 메인 블루그레이
+  DELIVERY: "#d99b38", // 배달: 차분한 앰버
+};
+
+function formatDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 function fillMonthDates(
   stats: DailyStats[],
@@ -35,15 +44,14 @@ function fillMonthDates(
   month: number,
 ): DailyStats[] {
   const map = new Map(stats.map((s) => [s.date, s]));
+  const lastDay = new Date(year, month, 0).getDate();
   const result: DailyStats[] = [];
 
-  const from = new Date(year, month - 1, 1);
-  const to = new Date(year, month, 0);
-
-  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().split("T")[0];
+  for (let day = 1; day <= lastDay; day++) {
+    const key = formatDateKey(year, month, day);
     result.push(map.get(key) ?? { date: key, amount: 0, count: 0 });
   }
+
   return result;
 }
 
@@ -54,12 +62,16 @@ export default function SalesCSV() {
 
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  //const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
   const [chartData, setChartData] = useState<DailyStats[]>([]);
   const [heatmapData, setHeatmapData] = useState<HourlyHeatmap[]>([]);
-  const [channelData, setChannelData] = useState<ChannelBreakdown[]>([]); // 채널 데이터 상태 추가
+  const [channelData, setChannelData] = useState<ChannelBreakdown[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeInsight, setActiveInsight] = useState<"peak" | "idle" | null>(
+    null,
+  );
+
+  const heatmapChartRef = useRef<ReactECharts>(null);
 
   const totalMonthAmount = useMemo(() => {
     return chartData.reduce((acc, cur) => acc + cur.amount, 0);
@@ -188,7 +200,7 @@ export default function SalesCSV() {
         left: "center",
         bottom: "0%",
         inRange: {
-          color: ["#f1f5f9", "#e0f2fe", "#7dd3fc", "#0284c7", "#0c4a6e"],
+          color: ["#f1f5f9", "#dce8f0", "#9fc0d6", "#6690ad", "#3d5e75"],
         },
       },
       series: [
@@ -199,8 +211,10 @@ export default function SalesCSV() {
           label: { show: false },
           emphasis: {
             itemStyle: {
-              shadowBlur: 10,
-              shadowColor: "rgba(0, 0, 0, 0.5)",
+              borderColor: "#0f172a",
+              borderWidth: 2,
+              shadowBlur: 12,
+              shadowColor: "rgba(15, 23, 42, 0.35)",
             },
           },
         },
@@ -223,14 +237,69 @@ export default function SalesCSV() {
     const maxDayIdx = maxItem.dayOfWeek >= 1 ? maxItem.dayOfWeek - 1 : 6;
     const minDayIdx = minItem.dayOfWeek >= 1 ? minItem.dayOfWeek - 1 : 6;
 
+    const peakCoord: HeatmapCoord = { hour: maxItem.hour, dayIndex: maxDayIdx };
+    const idleCoord: HeatmapCoord | null =
+      minItem.amount === 0 ? null : { hour: minItem.hour, dayIndex: minDayIdx };
+
     return {
       peak: `${days[maxDayIdx]}요일 ${maxItem.hour}시 (${maxItem.amount.toLocaleString()}원)`,
       idle:
         minItem.amount === 0
           ? "데이터 없음"
           : `${days[minDayIdx]}요일 ${minItem.hour}시 (${minItem.amount.toLocaleString()}원)`,
+      peakCoord,
+      idleCoord,
     };
   }, [heatmapData]);
+
+  const handleHighlightCoord = (
+    type: "peak" | "idle",
+    coord: HeatmapCoord | null,
+  ) => {
+    setActiveInsight(type);
+    const instance = heatmapChartRef.current?.getEchartsInstance();
+    if (!instance || !coord) return;
+
+    const dataIndex = heatmapData.findIndex((d) => {
+      const dayIdx = d.dayOfWeek >= 1 ? d.dayOfWeek - 1 : 6;
+      return d.hour === coord.hour && dayIdx === coord.dayIndex;
+    });
+
+    if (dataIndex >= 0) {
+      instance.dispatchAction({
+        type: "highlight",
+        seriesIndex: 0,
+        dataIndex,
+      });
+      instance.dispatchAction({
+        type: "showTip",
+        seriesIndex: 0,
+        dataIndex,
+      });
+    }
+  };
+
+  const handleClearHighlight = (coord: HeatmapCoord | null) => {
+    setActiveInsight(null);
+    const instance = heatmapChartRef.current?.getEchartsInstance();
+    if (!instance || !coord) return;
+
+    const dataIndex = heatmapData.findIndex((d) => {
+      const dayIdx = d.dayOfWeek >= 1 ? d.dayOfWeek - 1 : 6;
+      return d.hour === coord.hour && dayIdx === coord.dayIndex;
+    });
+
+    if (dataIndex >= 0) {
+      instance.dispatchAction({
+        type: "downplay",
+        seriesIndex: 0,
+        dataIndex,
+      });
+      instance.dispatchAction({
+        type: "hideTip",
+      });
+    }
+  };
 
   return (
     <CS.Container>
@@ -304,7 +373,7 @@ export default function SalesCSV() {
                   <Line
                     type="monotone"
                     dataKey="amount"
-                    stroke="#0284c7"
+                    stroke="#4f738e"
                     strokeWidth={2}
                     dot={{ r: 2 }}
                   />
@@ -332,9 +401,9 @@ export default function SalesCSV() {
                       nameKey="label"
                       cx="50%"
                       cy="50%"
-                      innerRadius={55}
-                      outerRadius={80}
-                      paddingAngle={4}
+                      innerRadius={60}
+                      outerRadius={84}
+                      paddingAngle={3}
                     >
                       {channelData.map((entry) => (
                         <Cell
@@ -378,6 +447,7 @@ export default function SalesCSV() {
           <CS.FlexRow>
             <CS.ChartPane>
               <ReactECharts
+                ref={heatmapChartRef}
                 option={echartsOption}
                 style={{ height: "360px", width: "100%" }}
               />
@@ -387,11 +457,37 @@ export default function SalesCSV() {
               {insightStats && (
                 <CS.SidebarSection>
                   <CS.SidebarTitle>데이터 인사이트 리포트</CS.SidebarTitle>
-                  <CS.InsightCard $type="peak">
-                    <div className="label">이번 달 피크 시간대</div>
+                  <CS.InsightCard
+                    type="button"
+                    $type="peak"
+                    $active={activeInsight === "peak"}
+                    onMouseEnter={() =>
+                      handleHighlightCoord("peak", insightStats.peakCoord)
+                    }
+                    onMouseLeave={() =>
+                      handleClearHighlight(insightStats.peakCoord)
+                    }
+                    onClick={() =>
+                      handleHighlightCoord("peak", insightStats.peakCoord)
+                    }
+                  >
+                    <div className="label">피크 시간대</div>
                     <div className="value">{insightStats.peak}</div>
                   </CS.InsightCard>
-                  <CS.InsightCard $type="idle">
+                  <CS.InsightCard
+                    type="button"
+                    $type="idle"
+                    $active={activeInsight === "idle"}
+                    onMouseEnter={() =>
+                      handleHighlightCoord("idle", insightStats.idleCoord)
+                    }
+                    onMouseLeave={() =>
+                      handleClearHighlight(insightStats.idleCoord)
+                    }
+                    onClick={() =>
+                      handleHighlightCoord("idle", insightStats.idleCoord)
+                    }
+                  >
                     <div className="label">한가한 시간대</div>
                     <div className="value">{insightStats.idle}</div>
                   </CS.InsightCard>

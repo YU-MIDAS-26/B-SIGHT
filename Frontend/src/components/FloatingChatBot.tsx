@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styled from "styled-components";
@@ -28,15 +33,17 @@ const FloatingButton = styled.button`
   border: none;
   background: #7ea0b7;
   color: white;
-  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
+  transition: background-color 0.2s ease;
 
   &:hover {
-    transform: scale(1.05);
+    background: #6689a1;
+    box-shadow: none;
   }
-
-  transition: all 0.2s ease;
 `;
 
 /* ===== 채팅창 ===== */
@@ -66,23 +73,37 @@ const ChatBox = styled.section<{ $open: boolean }>`
 
   opacity: ${(props) => (props.$open ? 1 : 0)};
   visibility: ${(props) => (props.$open ? "visible" : "hidden")};
-  transform: ${(props) =>
-    props.$open ? "translateY(0)" : "translateY(20px)"};
+  transform: ${(props) => (props.$open ? "translateY(0)" : "translateY(20px)")};
 
   transition: all 0.25s ease;
 `;
 
 const ResizeHandle = styled.div`
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 0;
+  left: 0;
   z-index: 10;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 18px;
+  height: 18px;
   cursor: nwse-resize;
-  background: linear-gradient(315deg, #d0d4d9, #ffffff);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  background: transparent;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid rgba(255, 255, 255, 0.35);
+    border-left: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-left-radius: 2px;
+    transition: border-color 0.15s ease;
+  }
+
+  &:hover::after {
+    border-color: rgba(255, 255, 255, 0.9);
+  }
 `;
 
 const MIN_CHAT_WIDTH = 280;
@@ -95,8 +116,9 @@ const MAX_CHAT_HEIGHT = 920;
 const Header = styled.div`
   background: #7ea0b7;
   color: white;
-  padding: 16px;
-  font-weight: bold;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 700;
 
   display: flex;
   justify-content: space-between;
@@ -131,8 +153,7 @@ const Bubble = styled.div<{ $role: "user" | "assistant" }>`
   align-self: ${(props) =>
     props.$role === "user" ? "flex-end" : "flex-start"};
 
-  background: ${(props) =>
-    props.$role === "user" ? "#7ea0b7" : "#e9ecef"};
+  background: ${(props) => (props.$role === "user" ? "#7ea0b7" : "#e9ecef")};
 
   color: ${(props) => (props.$role === "user" ? "white" : "#111")};
 
@@ -184,11 +205,19 @@ const InputArea = styled.div`
 
 const Input = styled.input`
   flex: 1;
-
-  border: 1px solid #c8cdd2;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 
-  padding: 12px;
+  &:focus {
+    border-color: #7ea0b7;
+    box-shadow: 0 0 0 3px rgba(126, 160, 183, 0.2);
+  }
 
   &:disabled {
     background: #f3f4f6;
@@ -242,7 +271,8 @@ export default function FloatingChatBot() {
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (!resizeStateRef.current || !chatBoxRef.current) return;
-      const { startX, startY, startWidth, startHeight } = resizeStateRef.current;
+      const { startX, startY, startWidth, startHeight } =
+        resizeStateRef.current;
       const deltaX = event.clientX - startX;
       const deltaY = event.clientY - startY;
 
@@ -353,9 +383,7 @@ export default function FloatingChatBot() {
               )}
             </Bubble>
           ))}
-          {isSending && (
-            <Bubble $role="assistant">답변 생성 중...</Bubble>
-          )}
+          {isSending && <Bubble $role="assistant">답변 생성 중...</Bubble>}
           <div ref={messagesEndRef} />
         </Messages>
 
@@ -373,14 +401,49 @@ export default function FloatingChatBot() {
             }}
           />
 
-          <Button type="button" disabled={isSending} onClick={() => void handleSend()}>
+          <Button
+            type="button"
+            disabled={isSending}
+            onClick={() => void handleSend()}
+          >
             {isSending ? "..." : "전송"}
           </Button>
         </InputArea>
       </ChatBox>
 
-      <FloatingButton type="button" onClick={() => setOpen((prev) => !prev)}>
-        챗봇
+      <FloatingButton
+        type="button"
+        aria-label={open ? "챗봇 닫기" : "챗봇 열기"}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        {open ? (
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        ) : (
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        )}
       </FloatingButton>
     </Wrapper>
   );
